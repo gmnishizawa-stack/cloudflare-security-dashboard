@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare セキュリティトレンドレポート</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #f6821f 0%, #ff6b35 100%);
+            color: white;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .period {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .updated {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 30px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #f6821f 0%, #ff6b35 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+        
+        .chart-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .chart-section h2 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .chart-description {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        .alert-box {
+            background: #fff3cd;
+            border-left: 4px solid #f6821f;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-box h3 {
+            color: #f6821f;
+            margin-bottom: 10px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Cloudflare セキュリティトレンドレポート</h1>
+            <div class="period">過去7日間のデータ</div>
+            <div class="updated" id="last-updated">読み込み中...</div>
+        </header>
+
+        <div id="loading" class="loading">📊 データ読み込み中...</div>
+
+        <div id="content" style="display: none;">
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('global')">🌍 グローバル</button>
+                <button class="tab-button" onclick="switchTab('japan')">🇯🇵 日本</button>
+            </div>
+
+            <!-- グローバルタブ -->
+            <div id="global-tab" class="tab-content active">
+                <div class="alert-box">
+                    <h3>📊 グローバルセキュリティトレンド</h3>
+                    <p>Layer 7（HTTP）攻撃、Layer 3（DDoS）攻撃、ボットトラフィックのデータを表示</p>
+                </div>
+
+                <div class="chart-section">
+                    <h2>📈 Layer 7攻撃トレンド（過去7日間）</h2>
+                    <p class="chart-description">Layer 7攻撃：Webサイトやアプリケーション（HTTP/HTTPS）を狙った攻撃。SQLインジェクションやXSSなどが含まれます。</p>
+                    <div class="chart-container">
+                        <canvas id="globalL7TrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-section">
+                    <h2>🔥 Layer 3 DDoS攻撃トレンド（過去7日間）</h2>
+                    <p class="chart-description">Layer 3攻撃：ネットワーク層への攻撃。大量のパケットでサーバーやネットワークを麻痺させるDDoS攻撃が代表的です。</p>
+                    <div class="chart-container">
+                        <canvas id="globalL3TrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-3">
+                    <div class="chart-section">
+                        <h2>🛡️ Layer 7防御手法</h2>
+                        <p class="chart-description">WAF、DDoSプロテクション、ボット管理など、Cloudflareの各種防御機能による攻撃の遮断割合。</p>
+                        <div class="chart-container">
+                            <canvas id="globalL7MitigationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-section">
+                        <h2>⚡ Layer 3プロトコル別</h2>
+                        <p class="chart-description">UDP、TCP、ICMPなど、DDoS攻撃に使用されたネットワークプロトコルの内訳。</p>
+                        <div class="chart-container">
+                            <canvas id="globalL3ProtocolChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-section">
+                        <h2>🤖 ボット vs 人間</h2>
+                        <p class="chart-description">Webトラフィック全体のうち、ボット（自動化プログラム）と人間による通信の比率。</p>
+                        <div class="chart-container">
+                            <canvas id="globalBotChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-section">
+                    <h2>🎯 攻撃対象国 Top 10</h2>
+                    <p class="chart-description">Layer 7攻撃を最も多く受けている国のランキング。割合はグローバル攻撃総数に対するパーセンテージ。</p>
+                    <div class="chart-container">
+                        <canvas id="globalLocationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日本タブ -->
+            <div id="japan-tab" class="tab-content">
+                <div class="alert-box">
+                    <h3>🇯🇵 日本向けセキュリティトレンド</h3>
+                    <p>日本を対象とした攻撃データとボットトラフィック</p>
+                </div>
+
+                <div class="chart-section">
+                    <h2>📈 Layer 7攻撃トレンド（日本・過去7日間）</h2>
+                    <p class="chart-description">Layer 7攻撃：Webサイトやアプリケーション（HTTP/HTTPS）を狙った攻撃。SQLインジェクションやXSSなどが含まれます。</p>
+                    <div class="chart-container">
+                        <canvas id="japanL7TrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-section">
+                    <h2>🔥 Layer 3 DDoS攻撃トレンド（日本・過去7日間）</h2>
+                    <p class="chart-description">Layer 3攻撃：ネットワーク層への攻撃。大量のパケットでサーバーやネットワークを麻痺させるDDoS攻撃が代表的です。</p>
+                    <div class="chart-container">
+                        <canvas id="japanL3TrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-3">
+                    <div class="chart-section">
+                        <h2>🛡️ Layer 7防御手法（日本）</h2>
+                        <p class="chart-description">WAF、DDoSプロテクション、ボット管理など、Cloudflareの各種防御機能による攻撃の遮断割合。</p>
+                        <div class="chart-container">
+                            <canvas id="japanL7MitigationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-section">
+                        <h2>⚡ Layer 3プロトコル別（日本）</h2>
+                        <p class="chart-description">UDP、TCP、ICMPなど、DDoS攻撃に使用されたネットワークプロトコルの内訳。</p>
+                        <div class="chart-container">
+                            <canvas id="japanL3ProtocolChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-section">
+                        <h2>🤖 ボット vs 人間（日本）</h2>
+                        <p class="chart-description">Webトラフィック全体のうち、ボット（自動化プログラム）と人間による通信の比率。</p>
+                        <div class="chart-container">
+                            <canvas id="japanBotChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-section">
+                    <h2>🌏 攻撃発信元国 Top 10</h2>
+                    <p class="chart-description">日本への攻撃を最も多く発信している国のランキング。割合は日本向け攻撃総数に対するパーセンテージ。</p>
+                    <div class="chart-container">
+                        <canvas id="japanSourceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>データソース: Cloudflare Radar API | 自動生成レポート</p>
+        </footer>
+    </div>
+
+    <script>
+        let charts = {};
+        let radarData = null;
+
+        async function loadData() {
+            try {
+                const response = await fetch('./data/latest.json');
+                radarData = await response.json();
+                
+                document.getElementById('last-updated').textContent = 
+                    `最終更新: ${radarData.updated}`;
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+                
+                initGlobalCharts();
+                
+            } catch (error) {
+                document.getElementById('loading').textContent = 
+                    '❌ データの読み込みに失敗しました: ' + error.message;
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tab + '-tab').classList.add('active');
+
+            if (tab === 'japan' && !charts.japanL7TrendChart) {
+                initJapanCharts();
+            }
+        }
+
+        function initGlobalCharts() {
+            // Layer 7トレンド
+            const l7Data = radarData.global.layer7.timeseries.serie_0;
+            const ctx1 = document.getElementById('globalL7TrendChart').getContext('2d');
+            charts.globalL7TrendChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: l7Data.timestamps.map(t => {
+                        const d = new Date(t);
+                        return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:00`;
+                    }),
+                    datasets: [{
+                        label: 'Layer 7攻撃',
+                        data: l7Data.values,
+                        borderColor: '#f6821f',
+                        backgroundColor: 'rgba(246, 130, 31, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Layer 3トレンド
+            const l3Data = radarData.global.layer3.timeseries.serie_0;
+            const ctx2 = document.getElementById('globalL3TrendChart').getContext('2d');
+            charts.globalL3TrendChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: l3Data.timestamps.map(t => {
+                        const d = new Date(t);
+                        return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:00`;
+                    }),
+                    datasets: [{
+                        label: 'Layer 3 DDoS攻撃',
+                        data: l3Data.values,
+                        borderColor: '#c33',
+                        backgroundColor: 'rgba(204, 51, 51, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Layer 7防御手法
+            const l7Summary = radarData.global.layer7.summary.summary_0;
+            const ctx3 = document.getElementById('globalL7MitigationChart').getContext('2d');
+            charts.globalL7MitigationChart = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(l7Summary).filter(k => parseFloat(l7Summary[k]) > 0),
+                    datasets: [{
+                        data: Object.values(l7Summary).filter(v => parseFloat(v) > 0),
+                        backgroundColor: ['#f6821f', '#ff6b35', '#ffb347', '#ffd699', '#e0e0e0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            // Layer 3プロトコル
+            const l3Protocol = radarData.global.layer3.protocol.summary_0;
+            const ctx4 = document.getElementById('globalL3ProtocolChart').getContext('2d');
+            charts.globalL3ProtocolChart = new Chart(ctx4, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(l3Protocol).filter(k => parseFloat(l3Protocol[k]) > 0),
+                    datasets: [{
+                        data: Object.values(l3Protocol).filter(v => parseFloat(v) > 0),
+                        backgroundColor: ['#c33', '#ff6b35', '#ffb347', '#ffd699', '#e0e0e0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            // ボット vs 人間
+            const botData = radarData.global.bot.class.summary_0;
+            const ctx5 = document.getElementById('globalBotChart').getContext('2d');
+            charts.globalBotChart = new Chart(ctx5, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(botData),
+                    datasets: [{
+                        data: Object.values(botData),
+                        backgroundColor: ['#4CAF50', '#FF9800']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            // 攻撃対象国
+            const locations = radarData.global.layer7.locations.top_0;
+            const ctx6 = document.getElementById('globalLocationChart').getContext('2d');
+            charts.globalLocationChart = new Chart(ctx6, {
+                type: 'bar',
+                data: {
+                    labels: locations.map(l => l.targetCountryName),
+                    datasets: [{
+                        label: '攻撃割合 (%)',
+                        data: locations.map(l => parseFloat(l.value)),
+                        backgroundColor: '#f6821f'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function initJapanCharts() {
+            // Layer 7トレンド（日本）
+            const l7Data = radarData.japan.layer7.timeseries.serie_0;
+            const ctx1 = document.getElementById('japanL7TrendChart').getContext('2d');
+            charts.japanL7TrendChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: l7Data.timestamps.map(t => {
+                        const d = new Date(t);
+                        return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:00`;
+                    }),
+                    datasets: [{
+                        label: 'Layer 7攻撃（日本）',
+                        data: l7Data.values,
+                        borderColor: '#f6821f',
+                        backgroundColor: 'rgba(246, 130, 31, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Layer 3トレンド（日本）
+            const l3Data = radarData.japan.layer3.timeseries.serie_0;
+            const ctx2 = document.getElementById('japanL3TrendChart').getContext('2d');
+            charts.japanL3TrendChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: l3Data.timestamps.map(t => {
+                        const d = new Date(t);
+                        return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:00`;
+                    }),
+                    datasets: [{
+                        label: 'Layer 3 DDoS攻撃（日本）',
+                        data: l3Data.values,
+                        borderColor: '#c33',
+                        backgroundColor: 'rgba(204, 51, 51, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Layer 7防御手法（日本）
+            const l7Summary = radarData.japan.layer7.summary.summary_0;
+            const ctx3 = document.getElementById('japanL7MitigationChart').getContext('2d');
+            charts.japanL7MitigationChart = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(l7Summary).filter(k => parseFloat(l7Summary[k]) > 0),
+                    datasets: [{
+                        data: Object.values(l7Summary).filter(v => parseFloat(v) > 0),
+                        backgroundColor: ['#f6821f', '#ff6b35', '#ffb347', '#ffd699', '#e0e0e0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            // Layer 3プロトコル（日本）
+            const l3Protocol = radarData.japan.layer3.protocol.summary_0;
+            const ctx4 = document.getElementById('japanL3ProtocolChart').getContext('2d');
+            charts.japanL3ProtocolChart = new Chart(ctx4, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(l3Protocol).filter(k => parseFloat(l3Protocol[k]) > 0),
+                    datasets: [{
+                        data: Object.values(l3Protocol).filter(v => parseFloat(v) > 0),
+                        backgroundColor: ['#c33', '#ff6b35', '#ffb347', '#ffd699', '#e0e0e0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            // ボット vs 人間（日本）
+            const botData = radarData.japan.bot.class.summary_0;
+            const ctx5 = document.getElementById('japanBotChart').getContext('2d');
+            charts.japanBotChart = new Chart(ctx5, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(botData),
+                    datasets: [{
+                        data: Object.values(botData),
+                        backgroundColor: ['#4CAF50', '#FF9800']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            // 攻撃発信元国
+            const sources = radarData.japan.layer7.sources.top_0;
+            const ctx6 = document.getElementById('japanSourceChart').getContext('2d');
+            charts.japanSourceChart = new Chart(ctx6, {
+                type: 'bar',
+                data: {
+                    labels: sources.map(l => l.originCountryName),
+                    datasets: [{
+                        label: '攻撃割合 (%)',
+                        data: sources.map(l => parseFloat(l.value)),
+                        backgroundColor: '#f6821f'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        window.addEventListener('load', loadData);
+    </script>
+</body>
+</html>
